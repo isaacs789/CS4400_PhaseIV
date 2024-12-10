@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Business Supply Database</title>
+    </head>
+    <body>
+        <!-- Form for Procedures -->
+        <form id="dropdownForm">
+            <label for="options">Choose an option:</label>
+            <select id="options" name="options" onchange="showParameterForm()">
+                <option value="add_owner">Add Owner</option>
+                <option value="add_employee">Add Employee</option>
+                <option value="add_driver_role">Add Driver Role</option>
+                <option value="add_worker_role">Add Worker Role</option>
+                <option value="add_product">Add Product</option>
+                <option value="add_van">Add Van</option>
+                <option value="add_business">Add Business</option>
+                <option value="add_service">Add Service</option>
+                <option value="add_location">Add Location</option>
+                <option value="start_funding">Start Funding</option>
+                <option value="hire_employee">Hire Employee</option>
+                <option value="fire_employee">Fire Employee</option>
+                <option value="manage_service">Manage Service</option>
+                <option value="takeover_van">Takeover Van</option>
+                <option value="load_van">Load Van</option>
+                <option value="refuel_van">Refuel Van</option>
+                <option value="drive_van">Drive Van</option>
+                <option value="purchase_product">Purchase Product</option>
+                <option value="remove_product">Remove Product</option>
+                <option value="remove_van">Remove Van</option>
+                <option value="remove_driver_role">Remove Driver Role</option>
+            </select>
+        </form>
+
+        <div id="parameterForm" style="display: none;">
+            <h2>Enter Parameters</h2>
+            <form id="dynamicForm">
+                <div id="parameterInputs"></div>
+                <button type="submit">Run Procedure</button>
+            </form>
+        </div>
+
+        <!-- Section for Viewing Data -->
+        <h2>View Data</h2>
+        <label for="viewSelect">Choose a View:</label>
+        <select id="viewSelect" name="viewSelect">
+            <option value="display_owner_view">Owner View</option>
+            <option value="display_employee_view">Employee View</option>
+            <option value="display_driver_view">Driver View</option>
+            <option value="display_location_view">Location View</option>
+            <option value="display_product_view">Product View</option>
+            <option value="display_service_view">Service View</option>
+        </select>
+        <button id="loadView">Load View</button>
+
+        <div id="viewResults">
+            <h3>Results</h3>
+            <table id="resultsTable">
+                <thead id="tableHead"></thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+
+        <!-- Debugging Output -->
+        <pre id="output"></pre>
+
+        <script>
+            const procedures = {
+                add_owner: ['Username', 'First Name', 'Last Name', 'Address', 'Birth Date'],
+                add_employee: ['Username', 'First Name', 'Last Name', 'Address', 'Birth Date', 'Tax ID', 'Hired Date', 'Experience', 'Salary'],
+                add_driver_role: ['Username', 'License ID', 'License Type', 'Driver Experience'],
+                add_worker_role: ['Username'],
+                add_product: ['Barcode', 'Name', 'Weight'],
+                add_van: ['ID', 'Tag', 'Fuel', 'Capacity', 'Sales', 'Driven By'],
+                add_business: ['Long Name', 'Rating', 'Spent', 'Location'],
+                add_service: ['ID', 'Long Name', 'Home Base', 'Manager'],
+                add_location: ['Label', 'X Coordinate', 'Y Coordinate', 'Space'],
+                start_funding: ['Owner', 'Amount', 'Long Name', 'Fund Date'],
+                hire_employee: ['Username', 'ID'],
+                fire_employee: ['Username', 'ID'],
+                manage_service: ['Username', 'ID'],
+                takeover_van: ['Username', 'ID', 'Tag'],
+                load_van: ['ID', 'Tag', 'Barcode', 'Quantity', 'Price'],
+                refuel_van: ['ID', 'Tag', 'Fuel'],
+                drive_van: ['ID', 'Tag', 'Destination'],
+                purchase_product: ['Long Name', 'ID', 'Tag', 'Barcode', 'Quantity'],
+                remove_product: ['Barcode'],
+                remove_van: ['ID', 'Tag'],
+                remove_driver_role: ['Username'],
+            };
+
+            function showParameterForm() {
+                const selectedProcedure = document.getElementById('options').value;
+                const parameterInputs = document.getElementById('parameterInputs');
+                parameterInputs.innerHTML = '';
+                if (procedures[selectedProcedure]) {
+                    procedures[selectedProcedure].forEach(param => {
+                        const input = document.createElement('input');
+                        input.type = 'text';
+                        input.name = param;
+                        input.placeholder = `Enter ${param}`;
+                        input.required = true;
+                        parameterInputs.appendChild(input);
+                    });
+                    document.getElementById('parameterForm').style.display = 'block';
+                }
+            }
+
+            document.getElementById('dynamicForm').onsubmit = async (e) => {
+                e.preventDefault();
+                const selectedProcedure = document.getElementById('options').value;
+                const inputs = new FormData(e.target);
+                const params = [];
+                inputs.forEach(value => params.push(value));
+                const response = await fetch('http://localhost:3000/run_procedure', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ procedureName: selectedProcedure, params }),
+                });
+                const result = await response.json();
+                document.getElementById('output').innerText = JSON.stringify(result, null, 2);
+            };
+
+            document.getElementById('loadView').onclick = async () => {
+                const viewName = document.getElementById('viewSelect').value;
+                const response = await fetch(`http://localhost:3000/views/${viewName}`);
+                const data = await response.json();
+                const tableHead = document.getElementById('tableHead');
+                const tableBody = document.getElementById('tableBody');
+                tableHead.innerHTML = '';
+                tableBody.innerHTML = '';
+                if (data.length > 0) {
+                    const headers = Object.keys(data[0]);
+                    const headerRow = document.createElement('tr');
+                    headers.forEach(header => {
+                        const th = document.createElement('th');
+                        th.textContent = header;
+                        headerRow.appendChild(th);
+                    });
+                    tableHead.appendChild(headerRow);
+                }
+                data.forEach(row => {
+                    const rowElement = document.createElement('tr');
+                    Object.values(row).forEach(value => {
+                        const td = document.createElement('td');
+                        td.textContent = value !== null ? value : 'N/A';
+                        rowElement.appendChild(td);
+                    });
+                    tableBody.appendChild(rowElement);
+                });
+            };
+        </script>
+    </body>
+</html>
+
+
+
+
